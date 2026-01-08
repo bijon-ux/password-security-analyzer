@@ -25,7 +25,6 @@ body {
 
 h1 {
     text-align: center;
-    margin-bottom: 10px;
 }
 
 .subtitle {
@@ -96,11 +95,10 @@ footer {
 <div class="container">
     <h1>🔐 Password Security Analyzer</h1>
     <p class="subtitle">
-        Hacker-aware password strength evaluation using entropy & attack simulation
+        Entropy-based password analysis with attack simulation
     </p>
 
     <input type="password" id="password" placeholder="Enter password to analyze">
-
     <button onclick="analyze()">Analyze Password</button>
 
     <div id="report" class="section" style="display:none">
@@ -130,7 +128,7 @@ footer {
     </div>
 
     <footer>
-        ⚠ Educational use only • No passwords are stored or transmitted
+        ⚠ Educational use only • All processing happens locally
     </footer>
 </div>
 
@@ -169,11 +167,32 @@ function detectHumanPatterns(password) {
     return issues;
 }
 
+/* 🔥 FIXED CRACK TIME ESTIMATION (NO LAG) */
 function estimateCrackTime(entropy) {
-    let guesses = Math.pow(2, entropy);
-    let speed = 10000000000;
-    let seconds = guesses / speed;
-    return new Date(seconds * 1000).toISOString().substr(11, 8);
+    if (entropy <= 0) return "Instant";
+
+    const guessesPerSecond = 1e10; // 10B GPU guesses/sec
+    const logSeconds = entropy * Math.log10(2) - Math.log10(guessesPerSecond);
+
+    if (logSeconds < 0) return "Less than 1 second";
+
+    const seconds = Math.pow(10, logSeconds);
+
+    const units = [
+        { label: "years", value: 60 * 60 * 24 * 365 },
+        { label: "days", value: 60 * 60 * 24 },
+        { label: "hours", value: 60 * 60 },
+        { label: "minutes", value: 60 },
+        { label: "seconds", value: 1 }
+    ];
+
+    for (let u of units) {
+        if (seconds >= u.value) {
+            return `${(seconds / u.value).toFixed(2)} ${u.label}`;
+        }
+    }
+
+    return "Instant";
 }
 
 function simulateAttacks(password) {
@@ -192,7 +211,9 @@ function simulateAttacks(password) {
 
 function generatePassword(len = 16) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=";
-    return Array.from({length: len}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+    return Array.from({length: len}, () =>
+        chars[Math.floor(Math.random() * chars.length)]
+    ).join('');
 }
 
 function analyze() {
@@ -211,11 +232,8 @@ function analyze() {
     document.getElementById("entropy").textContent = entropy;
     document.getElementById("crackTime").textContent = estimateCrackTime(entropy);
 
-    const human = detectHumanPatterns(password);
-    const attack = simulateAttacks(password);
-
-    fillList("humanRisks", human, "No human patterns detected");
-    fillList("attackRisks", attack, "No obvious attack vectors");
+    fillList("humanRisks", detectHumanPatterns(password), "No human patterns detected");
+    fillList("attackRisks", simulateAttacks(password), "No obvious attack vectors");
 
     document.getElementById("suggestion").textContent = generatePassword();
 }
